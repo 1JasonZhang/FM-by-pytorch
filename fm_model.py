@@ -72,57 +72,57 @@ def batcher(X_, y_=None, batch_size=-1):
         if y_ is not None:
             ret_y = y_[i:i + batch_size]
             yield (ret_x, ret_y)
+if __name__ == "__main__":
+    #data proprecess
+    cols = ['user','item','rating','timestamp']
 
-#data proprecess
-cols = ['user','item','rating','timestamp']
+    train = pd.read_csv('data/ua.base',delimiter='\t',names = cols)
+    test = pd.read_csv('data/ua.test',delimiter='\t',names = cols)
 
-train = pd.read_csv('data/ua.base',delimiter='\t',names = cols)
-test = pd.read_csv('data/ua.test',delimiter='\t',names = cols)
-
-x_train,ix = vectorize_dic({'users':train['user'].values,
-                            'items':train['item'].values},n=len(train.index),g=2)
-
-
-x_test,ix = vectorize_dic({'users':test['user'].values,
-                           'items':test['item'].values},ix,x_train.shape[1],n=len(test.index),g=2)
+    x_train,ix = vectorize_dic({'users':train['user'].values,
+                                'items':train['item'].values},n=len(train.index),g=2)
 
 
-y_train = train['rating'].values
-y_test = test['rating'].values
-
-x_train = x_train.todense()
-x_test = x_test.todense()
+    x_test,ix = vectorize_dic({'users':test['user'].values,
+                            'items':test['item'].values},ix,x_train.shape[1],n=len(test.index),g=2)
 
 
-print(x_train.shape)
-print(x_test.shape)
+    y_train = train['rating'].values
+    y_test = test['rating'].values
 
-#train
-n,p = x_train.shape
-k = 10
-batch_size=64
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = FM_model(p,k).cuda()
-loss_fn =nn.MSELoss()
-optimer = torch.optim.SGD(model.parameters(),lr=0.0001,weight_decay=0.001)
-epochs = 100
-for epoch in range(epochs):
-    loss_epoch = 0.0
-    loss_all = 0.0
-    perm = np.random.permutation(x_train.shape[0])
-    model.train()
-    for x,y in tqdm(batcher(x_train[perm], y_train[perm], batch_size)):
-        model.zero_grad()
-        x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float,device=device)
-        y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float,device=device)
-        x = x.view(-1, p)
-        y = y.view(-1, 1)
-        preds = model(x)
-        loss = loss_fn(preds,y)
-        loss_all += loss.item()
-        loss.backward()
-        optimer.step()
-    loss_epoch = loss_all/len(x)
-    print(f"Epoch [{epoch}/{10}], "
-              f"Loss: {loss_epoch:.8f} ")
+    x_train = x_train.todense()
+    x_test = x_test.todense()
+
+
+    print(x_train.shape)
+    print(x_test.shape)
+
+    #train
+    n,p = x_train.shape
+    k = 10
+    batch_size=64
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = FM_model(p,k).cuda()
+    loss_fn =nn.MSELoss()
+    optimer = torch.optim.SGD(model.parameters(),lr=0.0001,weight_decay=0.001)
+    epochs = 100
+    for epoch in range(epochs):
+        loss_epoch = 0.0
+        loss_all = 0.0
+        perm = np.random.permutation(x_train.shape[0])
+        model.train()
+        for x,y in tqdm(batcher(x_train[perm], y_train[perm], batch_size)):
+            model.zero_grad()
+            x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float,device=device)
+            y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float,device=device)
+            x = x.view(-1, p)
+            y = y.view(-1, 1)
+            preds = model(x)
+            loss = loss_fn(preds,y)
+            loss_all += loss.item()
+            loss.backward()
+            optimer.step()
+        loss_epoch = loss_all/len(x)
+        print(f"Epoch [{epoch}/{10}], "
+                f"Loss: {loss_epoch:.8f} ")
     
