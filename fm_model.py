@@ -76,8 +76,8 @@ if __name__ == "__main__":
     #data proprecess
     cols = ['user','item','rating','timestamp']
 
-    train = pd.read_csv('data/ua.base',delimiter='\t',names = cols)
-    test = pd.read_csv('data/ua.test',delimiter='\t',names = cols)
+    train = pd.read_csv('data/ua.base', delimiter='\t', names = cols)
+    test = pd.read_csv('data/ua.test', delimiter='\t', names = cols)
 
     x_train,ix = vectorize_dic({'users':train['user'].values,
                                 'items':train['item'].values},n=len(train.index),g=2)
@@ -102,9 +102,9 @@ if __name__ == "__main__":
     k = 10
     batch_size=64
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = FM_model(p,k).cuda()
-    loss_fn =nn.MSELoss()
-    optimer = torch.optim.SGD(model.parameters(),lr=0.0001,weight_decay=0.001)
+    model = FM_model(p, k).to(device)
+    loss_fn = nn.MSELoss()
+    optimer = torch.optim.SGD(model.parameters(), lr=0.0001, weight_decay=0.001)
     epochs = 100
     for epoch in range(epochs):
         loss_epoch = 0.0
@@ -113,8 +113,8 @@ if __name__ == "__main__":
         model.train()
         for x,y in tqdm(batcher(x_train[perm], y_train[perm], batch_size)):
             model.zero_grad()
-            x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float,device=device)
-            y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float,device=device)
+            x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float, device=device)
+            y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float, device=device)
             x = x.view(-1, p)
             y = y.view(-1, 1)
             preds = model(x)
