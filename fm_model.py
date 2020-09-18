@@ -8,6 +8,26 @@ import numpy as np
 from sklearn.feature_extraction import DictVectorizer
 import torch
 from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
+
+#FM model
+class FM_model(nn.Module):
+    def __init__(self,p,k):
+        super(FM_model,self).__init__()
+        self.p = p
+        self.k = k
+        self.linear = nn.Linear(self.p,1,bias=True)
+        self.v = nn.Parameter(torch.randn(self.k,self.p))
+    def fm_layer(self,x):
+        linear_part = self.linear(x)
+        inter_part1 = torch.mm(x,self.v.t())
+        inter_part2 = torch.mm(torch.pow(x,2),torch.pow(self.v,2).t())
+        output = linear_part + 0.5*torch.sum(torch.pow(inter_part1,2) - inter_part2)
+        return output
+    def forward(self,x):
+        output = self.fm_layer(x)
+        return output
+
 def vectorize_dic(dic,ix=None,p=None,n=0,g=0):
     """
     dic -- dictionary of feature lists. Keys are the name of features
@@ -53,7 +73,7 @@ def batcher(X_, y_=None, batch_size=-1):
             ret_y = y_[i:i + batch_size]
             yield (ret_x, ret_y)
 
-
+#data proprecess
 cols = ['user','item','rating','timestamp']
 
 train = pd.read_csv('data/ua.base',delimiter='\t',names = cols)
@@ -76,28 +96,12 @@ x_test = x_test.todense()
 
 print(x_train.shape)
 print(x_test.shape)
-#FM model
+
+#train
 n,p = x_train.shape
 k = 10
-class FM_model(nn.Module):
-    def __init__(self,p,k):
-        super(FM_model,self).__init__()
-        self.p = p
-        self.k = k
-        self.linear = nn.Linear(self.p,1,bias=True)
-        self.v = nn.Parameter(torch.randn(self.k,self.p))
-    def fm_layer(self,x):
-        linear_part = self.linear(x)
-        inter_part1 = torch.mm(x,self.v.t())
-        inter_part2 = torch.mm(torch.pow(x,2),torch.pow(self.v,2).t())
-        output = linear_part + 0.5*torch.sum(torch.pow(inter_part1,2) - inter_part2)
-        return output
-    def forward(self,x):
-        output = self.fm_layer(x)
-        return output
-#train
-from tqdm import tqdm
 batch_size=64
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = FM_model(p,k).cuda()
 loss_fn =nn.MSELoss()
 optimer = torch.optim.SGD(model.parameters(),lr=0.0001,weight_decay=0.001)
@@ -109,8 +113,8 @@ for epoch in range(epochs):
     model.train()
     for x,y in tqdm(batcher(x_train[perm], y_train[perm], batch_size)):
         model.zero_grad()
-        x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float,device=torch.device('cuda'))
-        y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float,device=torch.device('cuda'))
+        x = torch.as_tensor(np.array(x.tolist()), dtype=torch.float,device=device)
+        y = torch.as_tensor(np.array(y.tolist()), dtype=torch.float,device=device)
         x = x.view(-1, p)
         y = y.view(-1, 1)
         preds = model(x)
